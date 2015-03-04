@@ -56,13 +56,23 @@ class action_plugin_door43register_RegisterEdit extends DokuWiki_Action_Plugin {
 
         // save the file
         if (file_put_contents($file, $text) === false) {
-            echo $this->getLang('saveFileError');;
+            echo $this->getLang('saveFileError');
             return;
         }
 
         // set file permissions
         chmod($file, 0644);
 
+        // log the change
+        $timestamp = time();
+        $id = $langCode . ':register';
+        addLogEntry($timestamp, $id);
+
+        // save this revision in the attic
+        $atticFile = wikiFN($id, $timestamp, true);
+        io_saveFile($atticFile, $text, false);
+
+        // send OK to the browser
         echo 'OK';
     }
 
