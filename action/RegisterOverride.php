@@ -12,6 +12,8 @@ if(!defined('DOKU_INC')) die();
 
 class action_plugin_door43register_RegisterOverride extends DokuWiki_Action_Plugin {
 
+    private $namespace;
+
     /**
      * Registers a callback function for a given event
      *
@@ -84,28 +86,40 @@ class action_plugin_door43register_RegisterOverride extends DokuWiki_Action_Plug
     }
 
     protected function override_cached_output($file, $format='xhtml', $id='') {
-        global $conf;
 
-        $cache = new cache_renderer($id, $file, $format);
-        if ($cache->useCache()) {
-            $parsed = $cache->retrieveCache(false);
-            if($conf['allowdebug'] && $format=='xhtml') $parsed .= "\n<!-- cachefile {$cache->cache} used -->\n";
-        } else {
-            $parsed = p_render($format, p_cached_instructions($file,false,$id), $info);
+        // we are not caching this page because it interferes with language switching
+        $parsed = p_render($format, $this->override_cached_instructions($file,false,$id), $info);
 
-            // if there is a user logged in, insert the translate button
-            if (($GLOBALS['USERINFO'] != null) && (!empty($GLOBALS['USERINFO']['grps'])))
+        // if there is a user logged in, insert the translate button
+        if (($GLOBALS['USERINFO'] != null) && (!empty($GLOBALS['USERINFO']['grps']))) {
+
+            $ns = $this->getNamespace();
+            if (!(empty($ns)) && ($ns != 'en'))
                 $parsed .= PHP_EOL . $this->getButton();
-
-            if ($info['cache'] && $cache->storeCache($parsed)) {              // storeCache() attempts to save cachefile
-                if($conf['allowdebug'] && $format=='xhtml') $parsed .= "\n<!-- no cachefile used, but created {$cache->cache} -->\n";
-            }else{
-                $cache->removeCache();                     //try to delete cachefile
-                if($conf['allowdebug'] && $format=='xhtml') $parsed .= "\n<!-- no cachefile used, caching forbidden -->\n";
-            }
         }
 
         return $parsed;
+    }
+
+    function override_cached_instructions($file, $cacheonly=false, $id='') {
+
+        static $run = null;
+        if(is_null($run)) $run = array();
+
+        $cache = new cache_instructions($id, $file);
+
+        if (@file_exists($file)) {
+            // no cache - do some work
+            $ins = p_get_instructions(io_readWikiPage($file, $id));
+            if ($cache->storeCache($ins)) {
+                $run[$file] = true; // we won't rebuild these instructions in the same run again
+            } else {
+                msg('Unable to save cache file. Hint: disk full; file permissions; safe_mode setting.',-1);
+            }
+            return $ins;
+        }
+
+        return null;
     }
 
     protected function getButton() {
@@ -118,17 +132,17 @@ class action_plugin_door43register_RegisterOverride extends DokuWiki_Action_Plug
         // remove the initial doc comments
         $buttonText = preg_replace('/^\<!--(.|\n)*--\>(\n)/', '', $buttonText, 1);
 
-        //<!--suppress
+        // translate
         $buttonText = $this->translateHtml($buttonText);
 
         /* @var $translation helper_plugin_translation */
         $translation = plugin_load('helper','translation');
-        $langName = $translation->getLocalName($GLOBALS['conf']['lang']);
-        if (empty($langName)) $langName = $GLOBALS['conf']['lang'];
+        $langName = $translation->getLocalName($this->namespace);
+        if (empty($langName)) $langName = $this->namespace;
 
         // insert the name of the current language and language code
         $buttonText = str_replace('{lang}', $langName, $buttonText);
-        $buttonText = str_replace('{langCode}', $GLOBALS['conf']['lang'], $buttonText);
+        $buttonText = str_replace('{langCode}', $this->namespace, $buttonText);
 
         // put the text to translate into the edit area
         $fileText = file_get_contents($this->override_localeFN('register'));
@@ -144,5 +158,18 @@ class action_plugin_door43register_RegisterOverride extends DokuWiki_Action_Plug
                 return (empty($text)) ? $matches[0] : $text;
             },
             $html);
+    }
+
+    protected function getNamespace() {
+
+        if (!empty($this->namespace)) return $this->namespace;
+
+        global $INFO;
+
+        $nss = explode(':', $INFO['namespace']);
+
+        if (!empty($nss)) $this->namespace = $nss[0];
+
+        return $this->namespace;
     }
 }
