@@ -10,7 +10,15 @@
 // must be run within Dokuwiki
 if(!defined('DOKU_INC')) die();
 
-class action_plugin_door43register_RegisterOverride extends DokuWiki_Action_Plugin {
+// $door43shared is a global instance, and can be used by any of the door43 plugins
+if (empty($door43shared)) {
+    $door43shared = plugin_load('helper', 'door43shared');
+}
+
+/* @var $door43shared helper_plugin_door43shared */
+$door43shared->loadActionBase();
+
+class action_plugin_door43register_RegisterOverride extends Door43_Action_Plugin {
 
     private $namespace;
 
@@ -101,7 +109,8 @@ class action_plugin_door43register_RegisterOverride extends DokuWiki_Action_Plug
         return $parsed;
     }
 
-    function override_cached_instructions($file, $cacheonly=false, $id='') {
+    function override_cached_instructions($file, /** @noinspection PhpUnusedParameterInspection */
+                                          $cacheonly=false, $id='') {
 
         static $run = null;
         if(is_null($run)) $run = array();
@@ -149,15 +158,6 @@ class action_plugin_door43register_RegisterOverride extends DokuWiki_Action_Plug
         $buttonText = str_replace('</textarea>', $fileText . '</textarea>', $buttonText);
 
         return $buttonText;
-    }
-
-    protected function translateHtml($html) {
-        return preg_replace_callback('/@(.+?)@/',
-            function($matches) {
-                $text = $this->getLang($matches[1]);
-                return (empty($text)) ? $matches[0] : $text;
-            },
-            $html);
     }
 
     protected function getNamespace() {

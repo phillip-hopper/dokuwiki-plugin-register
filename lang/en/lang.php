@@ -13,8 +13,6 @@
 // custom language strings for the plugin
 $lang['translateTitle'] = 'Translate';
 $lang['translateInto'] = 'Translate into {lang}';
-$lang['saveButton'] = 'Save';
-$lang['cancelButton'] = 'Cancel';
 $lang['makeDirError'] = 'Not able to create directory.';
 $lang['saveFileError'] = 'Not able to save changes.';
 
